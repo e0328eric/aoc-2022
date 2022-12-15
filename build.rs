@@ -5,7 +5,7 @@
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,6 +15,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nasm = get_program_location("nasm")?;
     let gcc = get_program_location("gcc")?;
 
+    compile_asm(&nasm, &manifest_dir, &output_dir)?;
+
+    if let Ok(_) = fs::File::open(output_dir.join("../../../libaoc_2022.a")) {
+        link_asm(&gcc, &manifest_dir, &output_dir)?;
+    } else {
+        compile_asm(&nasm, &manifest_dir, &output_dir)?;
+    }
+
+    Ok(())
+}
+
+fn compile_asm(
+    nasm: &str,
+    manifest_dir: &Path,
+    output_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     let nasm_output = Command::new(nasm)
         .arg(manifest_dir.join("src/main.asm"))
         .arg("-fmacho64")
@@ -25,16 +41,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("{:?}", String::from_utf8(nasm_output.stderr));
     }
 
-    if let Ok(_) = fs::File::open(output_dir.join("../../../libaoc_2022.a")) {
-        let gcc_output = Command::new(gcc)
-            .arg(output_dir.join("main.o"))
-            .arg(output_dir.join("../../../libaoc_2022.a"))
-            .arg("-o")
-            .arg(manifest_dir.join("solution"))
-            .output()?;
-        if !gcc_output.status.success() {
-            panic!("{:?}", String::from_utf8(gcc_output.stderr));
-        }
+    Ok(())
+}
+
+fn link_asm(
+    gcc: &str,
+    manifest_dir: &Path,
+    output_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let gcc_output = Command::new(gcc)
+        .arg(output_dir.join("main.o"))
+        .arg(output_dir.join("../../../libaoc_2022.a"))
+        .arg("-o")
+        .arg(manifest_dir.join("solution"))
+        .output()?;
+    if !gcc_output.status.success() {
+        panic!("{:?}", String::from_utf8(gcc_output.stderr));
     }
 
     Ok(())
